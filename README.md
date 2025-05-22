@@ -104,7 +104,7 @@ nockchain
 To run a Nockchain node and mine to a pubkey:
 
 ```
-nockchain --mining_pubkey <your_pubkey> --mine
+nockchain --mining-pubkey <your_pubkey> --mine
 ```
 
 For launch, make sure you run in a fresh working directory that does not include a .data.nockchain file from testing.
