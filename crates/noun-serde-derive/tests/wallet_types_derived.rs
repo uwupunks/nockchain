@@ -300,6 +300,10 @@ mod tests {
             intent: TimelockIntent::After,
         };
         let encoded = timelock.to_noun(&mut stack);
+        println!(
+            "Encoded timelock: {:?}",
+            FullDebugCell(&encoded.as_cell().unwrap())
+        );
         let decoded = Timelock::from_noun(&mut stack, &encoded).unwrap();
         assert_eq!(timelock, decoded);
     }

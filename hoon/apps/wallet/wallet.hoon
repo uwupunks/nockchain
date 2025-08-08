@@ -195,7 +195,7 @@
       [%show-tx dat=transaction]
       [%list-notes-by-pubkey pubkey=@t]                 ::  base58-encoded pubkey
       [%list-notes-by-pubkey-csv pubkey=@t]             ::  base58-encoded pubkey, CSV format
-      $:  %spend
+      $:  %create-tx
           names=(list [first=@t last=@t])               ::  base58-encoded name hashes
           $=  order
           $%  [%multiple recipients=(list [m=@ pks=(list @t)]) gifts=(list coins:transact)]
@@ -1235,7 +1235,7 @@
       %list-notes            (do-list-notes cause)
       %list-notes-by-pubkey  (do-list-notes-by-pubkey cause)
       %list-notes-by-pubkey-csv  (do-list-notes-by-pubkey-csv cause)
-      %spend                 (do-spend cause)
+      %create-tx             (do-create-tx cause)
       %update-balance        (do-update-balance cause)
       %update-block          (do-update-block cause)
       %import-keys           (do-import-keys cause)
@@ -2030,11 +2030,11 @@
       [%exit 0]
   ==
   ::
-  ++  do-spend
+  ++  do-create-tx
     |=  =cause
-    ?>  ?=(%spend -.cause)
+    ?>  ?=(%create-tx -.cause)
     |^
-    %-  (debug "spend: {<names.cause>}")
+    %-  (debug "create-tx: {<names.cause>}")
     =/  names=(list nname:transact)  (parse-names names.cause)
     =/  initial-ledger=ledger  (build-ledger names -.order.cause)
     =/  ins=(list input:transact)  (create-inputs initial-ledger names -.order.cause)

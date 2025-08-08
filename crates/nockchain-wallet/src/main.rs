@@ -209,19 +209,6 @@ pub enum Commands {
     /// Export keys to a file
     ExportKeys,
 
-    /// Signs a transaction
-    SignTx {
-        /// Path to input bundle file
-        transaction: String,
-
-        /// Optional key index to use for signing [0, 2^31)
-        #[arg(short, long, value_parser = clap::value_parser!(u64).range(0..2 << 31))]
-        index: Option<u64>,
-        /// Hardened or unhardened child key
-        #[arg(short, long, default_value = "false")]
-        hardened: bool,
-    },
-
     /// Perform a simple scan of the blockchain
     Scan {
         /// Master public key to scan for
@@ -253,8 +240,33 @@ pub enum Commands {
         pubkey: String,
     },
 
-    /// Perform a spend operation
-    Spend {
+    /// Create a transaction from a transaction file
+    SendTx {
+        /// Transaction file to create transaction from
+        transaction: String,
+    },
+
+    /// Display a transaction file contents
+    ShowTx {
+        /// Transaction file to display
+        transaction: String,
+    },
+
+    /// Signs a transaction (for multisigs only)
+    SignTx {
+        /// Path to input bundle file
+        transaction: String,
+
+        /// Optional key index to use for signing [0, 2^31)
+        #[arg(short, long, value_parser = clap::value_parser!(u64).range(0..2 << 31))]
+        index: Option<u64>,
+        /// Hardened or unhardened child key
+        #[arg(short, long, default_value = "false")]
+        hardened: bool,
+    },
+
+    /// Create a transaction
+    CreateTx {
         /// Names of notes to spend (comma-separated)
         #[arg(long)]
         names: String,
@@ -279,18 +291,6 @@ pub enum Commands {
         /// Hardened or unhardened child key
         #[arg(short, long, default_value = "false")]
         hardened: bool,
-    },
-
-    /// Create a transaction from a transaction file
-    SendTx {
-        /// Transaction file to create transaction from
-        transaction: String,
-    },
-
-    /// Display a transaction file contents
-    ShowTx {
-        /// Transaction file to display
-        transaction: String,
     },
 
     /// Update the wallet balance
@@ -330,7 +330,7 @@ impl Commands {
             Commands::ListNotes => "list-notes",
             Commands::ListNotesByPubkey { .. } => "list-notes-by-pubkey",
             Commands::ListNotesByPubkeyCsv { .. } => "list-notes-by-pubkey-csv",
-            Commands::Spend { .. } => "spend",
+            Commands::CreateTx { .. } => "create-tx",
             Commands::SendTx { .. } => "send-tx",
             Commands::ShowTx { .. } => "show-tx",
             Commands::UpdateBalance => "update-balance",
@@ -627,7 +627,7 @@ impl Wallet {
         )
     }
 
-    /// Performs a spend operation by creating transaction inputs from notes.
+    /// Creates a transaction by building transaction inputs from notes.
     ///
     /// Takes a list of note names, recipient addresses, and gift amounts to create
     /// transaction inputs. The fee is subtracted from the first note that has sufficient
@@ -652,7 +652,7 @@ impl Wallet {
     /// # Returns
     ///
     /// Returns a `CommandNoun` containing:
-    /// - A `NounSlab` with the encoded spend command
+    /// - A `NounSlab` with the encoded create-tx command
     /// - The `Operation` type (Poke)
     ///
     /// # Errors
@@ -669,9 +669,9 @@ impl Wallet {
     /// let recipients = "[1 pk1],[2 pk2,pk3,pk4]";
     /// let gifts = "100,200";
     /// let fee = 10;
-    /// wallet.spend(names.to_string(), recipients.to_string(), gifts.to_string(), fee)?;
+    /// wallet.create_tx(names.to_string(), recipients.to_string(), gifts.to_string(), fee)?;
     /// ```
-    fn spend(
+    fn create_tx(
         names: String,
         recipients: String,
         gifts: String,
@@ -840,7 +840,7 @@ impl Wallet {
         let timelock_intent_noun = timelock_intent.to_noun(&mut slab);
 
         Self::wallet(
-            "spend",
+            "create-tx",
             &[names_noun, order_noun, fee_noun, sign_key_noun, timelock_intent_noun],
             Operation::Poke,
             &mut slab,
@@ -1027,7 +1027,7 @@ async fn main() -> Result<(), NockAppError> {
         | Commands::ShowSeedphrase
         | Commands::ShowMasterPubkey
         | Commands::ShowMasterPrivkey
-        | Commands::Spend { .. }
+        | Commands::CreateTx { .. }
         | Commands::ShowTx { .. } => false,
 
         // All other commands DO need sync
@@ -1110,7 +1110,7 @@ async fn main() -> Result<(), NockAppError> {
             }
         }
         Commands::ListNotesByPubkeyCsv { pubkey } => Wallet::list_notes_by_pubkey_csv(pubkey),
-        Commands::Spend {
+        Commands::CreateTx {
             names,
             recipients,
             gifts,
@@ -1137,7 +1137,7 @@ async fn main() -> Result<(), NockAppError> {
                 }
             };
 
-            Wallet::spend(
+            Wallet::create_tx(
                 names.clone(),
                 recipients.clone(),
                 gifts.clone(),
@@ -1605,7 +1605,7 @@ mod tests {
         let gifts = "1,2".to_string();
         let fee = 1;
 
-        let (noun, op) = Wallet::spend(
+        let (noun, op) = Wallet::create_tx(
             names.clone(),
             recipients.clone(),
             gifts.clone(),
@@ -1614,7 +1614,7 @@ mod tests {
             false,
             vec![TimelockIntent::none()],
         )?;
-        let wire = WalletWire::Command(Commands::Spend {
+        let wire = WalletWire::Command(Commands::CreateTx {
             names: names.clone(),
             recipients: recipients.clone(),
             gifts: gifts.clone(),
@@ -1650,7 +1650,7 @@ mod tests {
 
         // generate keys
         let (genkey_noun, genkey_op) = Wallet::gen_master_privkey("correct horse battery staple")?;
-        let (spend_noun, spend_op) = Wallet::spend(
+        let (spend_noun, spend_op) = Wallet::create_tx(
             names.clone(),
             recipients.clone(),
             gifts.clone(),
@@ -1671,7 +1671,7 @@ mod tests {
         let genkey_result = wallet.app.poke(wire1, genkey_noun.clone()).await?;
         println!("genkey_result: {:?}", genkey_result);
 
-        let wire2 = WalletWire::Command(Commands::Spend {
+        let wire2 = WalletWire::Command(Commands::CreateTx {
             names: names.clone(),
             recipients: recipients.clone(),
             gifts: gifts.clone(),

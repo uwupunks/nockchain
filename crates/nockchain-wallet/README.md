@@ -111,13 +111,13 @@ Outputs matching notes in CSV format suitable for analysis or reporting.
 
 ### Create a Transaction
 
-The spend command supports two modes: single recipient and multiple recipients.
+The create-tx command supports two modes: single recipient and multiple recipients.
 
 #### Single Recipient Transaction
 
 ```bash
 # Send to a single recipient
-nockchain-wallet spend \
+nockchain-wallet create-tx \
   --names "[first1 last1]" \
   --recipient "[1 pk1]" \
   --gift 100 \
@@ -133,7 +133,7 @@ For single recipient transactions:
 
 ```bash
 # Send to multiple recipients
-nockchain-wallet spend \
+nockchain-wallet create-tx \
   --names "[first1 last1],[first2 last2]" \
   --recipients "[1 pk1],[2 pk2,pk3]" \
   --gifts "100,200" \
