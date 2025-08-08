@@ -2002,14 +2002,14 @@
       |=  [name=nname:transact note=nnote:transact]
       (~(has z-in:zo pubkeys.lock.note) target-pubkey)
     =/  csv-header=tape
-    "name_first,name_last,assets,block_height,source_hash,required_signatures"
+     "name_first,name_last,assets,block_height,source_hash,required_signatures"
     =/  csv-rows=(list tape)
       %+  turn  matching-notes
       |=  [name=nname:transact note=nnote:transact]
       =/  name-b58=[first=@t last=@t]  (to-b58:nname:transact name)
       =/  source-hash-b58=@t  (to-b58:hash:transact p.source.note)
       """
-    {(trip first.name-b58)},{(trip last.name-b58)},{(ui-to-tape assets.note)},{(ui-to-tape origin-page.note)},{(trip source-hash-b58)},{(ui-to-tape m.lock.note)}
+     {(trip first.name-b58)},{(trip last.name-b58)},{(ui-to-tape assets.note)},{(ui-to-tape origin-page.note)},{(trip source-hash-b58)},{(ui-to-tape m.lock.note)}
       """
     =/  csv-content=tape
       %+  welp  csv-header
