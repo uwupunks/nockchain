@@ -12,7 +12,7 @@ use libp2p::multiaddr::Multiaddr;
 use libp2p::{allow_block_list, connection_limits, memory_connection_limits, PeerId};
 use nockapp::kernel::boot;
 use nockapp::utils::make_tas;
-use nockapp::NockApp;
+use nockapp::{NockApp};
 use termcolor::{ColorChoice, StandardStream};
 use tokio::net::UnixListener;
 pub mod colors;
@@ -25,6 +25,7 @@ use nockvm_macros::tas;
 use tracing::{debug, info, instrument};
 
 use crate::mining::MiningKeyConfig;
+use nockapp::indexer;
 
 /// Module for handling driver initialization signals
 pub mod driver_init {
@@ -488,6 +489,11 @@ pub async fn init_with_kernel<J: Jammer + Send + 'static>(
         Some(libp2p_init_tx),
     );
     nockapp.add_io_driver(libp2p_driver).await;
+
+    let enable_indexer = cli.as_ref().map_or(false, |c| c.indexer);
+    let indexer_driver =
+        crate::indexer::make_indexer_driver(enable_indexer);
+    nockapp.add_io_driver(indexer_driver).await;
 
     // Create the born driver that waits for the born signal
     // Make the born poke

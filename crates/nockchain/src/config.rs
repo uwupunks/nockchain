@@ -115,6 +115,8 @@ pub struct NockchainCli {
     pub fakenet_log_difficulty: Option<u64>,
     #[arg(long, help = "Path to fake genesis block jam file")]
     pub fakenet_genesis_jam_path: Option<PathBuf>,
+    #[arg(long, help = "Run as indexer node. This will copy heard blocks from kernel state into a db for efficient querying of transactions.", default_value = "false")]
+    pub indexer: bool,
 }
 
 impl NockchainCli {
