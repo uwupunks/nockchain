@@ -89,14 +89,14 @@ impl Page {
         let page = Page {
             digest: extracted[0].clone(),
             //pow: extracted[1].clone(),
-            parent: extracted[2].clone(),
-            tx_ids: extracted[3].clone(),
-            coinbase: extracted[4].clone(),
-            timestamp: extracted[5].clone(),
-            epoch_counter: extracted[6].clone(),
-            target: extracted[7].clone(),
-            accumulated_work: extracted[8].clone(),
-            height: extracted[9].clone(),
+            parent: extracted[1].clone(),
+            tx_ids: extracted[2].clone(),
+            coinbase: extracted[3].clone(),
+            timestamp: extracted[4].clone(),
+            epoch_counter: extracted[5].clone(),
+            target: extracted[6].clone(),
+            accumulated_work: extracted[7].clone(),
+            height: extracted[8].clone(),
         };
 
         page.validate()?;
@@ -209,7 +209,6 @@ fn noun_to_bytes(&self, noun: &Noun) -> Result<Vec<u8>, IndexerError> {
     fn to_bytes(&self) -> Result<Vec<u8>, IndexerError> {
         let fields = [
             ("digest", &self.digest),
-            //("pow", &self.pow),
             ("parent", &self.parent),
             ("tx_ids", &self.tx_ids),
             ("coinbase", &self.coinbase),
@@ -234,8 +233,8 @@ fn noun_to_bytes(&self, noun: &Noun) -> Result<Vec<u8>, IndexerError> {
         let mut offset = 0;
         let mut nouns = Vec::new();
 
-        // Read 10 fields (digest, pow, parent, tx_ids, coinbase, timestamp, epoch_counter, target, accumulated_work, height)
-        for _ in 0..10 {
+        // Read 9 fields (digest, parent, tx_ids, coinbase, timestamp, epoch_counter, target, accumulated_work, height)
+        for _ in 0..9 {
             if offset + 4 > bytes.len() {
                 return Err(IndexerError::InvalidData("Incomplete data".to_string()));
             }
@@ -249,21 +248,21 @@ fn noun_to_bytes(&self, noun: &Noun) -> Result<Vec<u8>, IndexerError> {
             offset += len;
         }
 
-        if nouns.len() != 10 {
+        if nouns.len() != 9 {
             return Err(IndexerError::InvalidData("Wrong number of fields".to_string()));
         }
 
         Ok(Some(Page {
             digest: nouns[0],
             //pow: nouns[1],
-            parent: nouns[2],
-            tx_ids: nouns[3],
-            coinbase: nouns[4],
-            timestamp: nouns[5],
-            epoch_counter: nouns[6],
-            target: nouns[7],
-            accumulated_work: nouns[8],
-            height: nouns[9],
+            parent: nouns[1],
+            tx_ids: nouns[2],
+            coinbase: nouns[3],
+            timestamp: nouns[4],
+            epoch_counter: nouns[5],
+            target: nouns[6],
+            accumulated_work: nouns[7],
+            height: nouns[8],
         }))
     } 
         // Insert Page into RocksDB
