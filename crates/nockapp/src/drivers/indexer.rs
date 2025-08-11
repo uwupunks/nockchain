@@ -106,7 +106,7 @@ impl Page {
     pub fn validate(&self) -> Result<(), NockAppError> {
         // Validate expected atom/cell types
         if !self.digest.is_cell() {
-            debug!("indexer:  invalid digest: not cell {:?}", self.digest);
+            error!("indexer:  invalid digest: not cell {:?}", self.digest);
             return Err(NockAppError::OtherError);
         }
         // if !self.pow.is_cell() && !self.pow.is_atom() {
@@ -114,39 +114,39 @@ impl Page {
         //     return Err(NockAppError::OtherError);
         // }
         if !self.parent.is_cell() {
-            debug!("indexer:  invalid parent: not cell {:?}", self.parent);
+            error!("indexer:  invalid parent: not cell {:?}", self.parent);
             return Err(NockAppError::OtherError);
         }
         if !self.tx_ids.is_cell() && !self.tx_ids.is_atom() {
-            debug!(
+            error!(
                 "indexer:  invalid tx-ids: not cell or atom {:?}",
                 self.tx_ids
             );
             return Err(NockAppError::OtherError);
         }
         if !self.coinbase.is_cell() {
-            debug!("indexer:  invalid coinbase: not cell {:?}", self.coinbase);
+            error!("indexer:  invalid coinbase: not cell {:?}", self.coinbase);
             return Err(NockAppError::OtherError);
         }
         if !self.timestamp.is_atom() {
-            debug!("indexer:  invalid timestamp: not atom {:?}", self.timestamp);
+            error!("indexer:  invalid timestamp: not atom {:?}", self.timestamp);
             return Err(NockAppError::OtherError);
         }
         if !self.epoch_counter.is_atom() {
-            debug!(
+            error!(
                 "indexer:  invalid epoch-counter: not atom {:?}",
                 self.epoch_counter
             );
             return Err(NockAppError::OtherError);
         }
         if !self.height.is_atom() {
-            debug!("indexer:  invalid height: not atom {:?}", self.height);
+            error!("indexer:  invalid height: not atom {:?}", self.height);
             return Err(NockAppError::OtherError);
         }
-        // Optional: Add range checks for height, epoch_counter
+        // todo: Add range checks for height, epoch_counter
         if let Ok(h) = self.height.as_direct() {
             if h.data() == 0 {
-                debug!("indexer:  invalid height: zero {:?}", self.height);
+                error!("indexer:  invalid height: zero {:?}", self.height);
                 return Err(NockAppError::OtherError);
             }
         }
@@ -236,11 +236,13 @@ fn noun_to_bytes(&self, noun: &Noun) -> Result<Vec<u8>, IndexerError> {
         // Read 9 fields (digest, parent, tx_ids, coinbase, timestamp, epoch_counter, target, accumulated_work, height)
         for _ in 0..9 {
             if offset + 4 > bytes.len() {
+                warn!("Incomplete data while reading length");
                 return Err(IndexerError::InvalidData("Incomplete data".to_string()));
             }
             let len = u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap()) as usize;
             offset += 4;
             if offset + len > bytes.len() {
+                warn!("Invalid length field");
                 return Err(IndexerError::InvalidData("Invalid length".to_string()));
             }
             let jammed = JammedNoun::new(bytes[offset..offset + len].to_vec().into());
@@ -335,7 +337,7 @@ async fn log_page_fields(page: &Page) {
     for (name, slot) in fields.iter() {
         match *name {
             "height" | "epoch-counter" | "timestamp" => {
-                debug!(
+                info!(
                     "Field {} (slot {}): {}",
                     name,
                     slot,
