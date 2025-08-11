@@ -134,7 +134,7 @@ impl Page {
         }
         if !self.epoch_counter.is_atom() {
             error!(
-                "indexer:  invalid epoch-counter: not atom {:?}",
+                "indexer:  invalid epoch_counter: not atom {:?}",
                 self.epoch_counter
             );
             return Err(NockAppError::OtherError);
@@ -161,9 +161,9 @@ impl Page {
             "tx-ids" => Ok(&self.tx_ids),
             "coinbase" => Ok(&self.coinbase),
             "timestamp" => Ok(&self.timestamp),
-            "epoch-counter" => Ok(&self.epoch_counter),
+            "epoch_counter" => Ok(&self.epoch_counter),
             "target" => Ok(&self.target),
-            "accumulated-work" => Ok(&self.accumulated_work),
+            "accumulated_work" => Ok(&self.accumulated_work),
             "height" => Ok(&self.height),
             //"msg" => Ok(&self.msg),
             _ => {
@@ -328,15 +328,15 @@ async fn log_page_fields(page: &Page) {
         ("tx-ids", 30),
         ("coinbase", 62),
         ("timestamp", 126),
-        ("epoch-counter", 254),
+        ("epoch_counter", 254),
         ("target", 510),
-        ("accumulated-work", 1022),
+        ("accumulated_work", 1022),
         ("height", 2046),
     ];
 
     for (name, slot) in fields.iter() {
         match *name {
-            "height" | "epoch-counter" | "timestamp" => {
+            "height" | "epoch_counter" | "timestamp" => {
                 info!(
                     "Field {} (slot {}): {}",
                     name,
