@@ -69,6 +69,10 @@ opentelemetry-otlp.workspace = true
 opentelemetry_sdk.workspace = true
 tonic.workspace = true
 
+# Indexer support
+rocksdb = "0.24"
+hex = "0.4"
+
 [dev-dependencies]
 
 [lib]
