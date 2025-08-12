@@ -168,3 +168,73 @@ nockchain-wallet send-tx txs/transaction.tx
 ```
 
 Note: The transaction file will be saved in `./txs/` directory with a `.tx` extension.
+
+
+## Message Signing and Verification
+
+### Sign Message
+
+Signs arbitrary bytes with the wallet's key. By default, the signature is written to `message.sig`.
+
+Short flags:
+
+```bash
+nockchain-wallet sign-message -m "hello"
+nockchain-wallet sign-message -m "hello" --index 5 --hardened
+```
+
+Positional message (equivalent to `-m/--message`):
+
+```bash
+nockchain-wallet sign-message "hello"
+```
+
+From file:
+
+```bash
+nockchain-wallet sign-message --message-file ./payload.bin
+```
+
+### Verify Message
+
+Verifies a signature against a message and a base58-encoded schnorr public key.
+
+Short flags:
+
+```bash
+nockchain-wallet verify-message -m "hello" -s message.sig -p <BASE58_PUBKEY>
+```
+
+Positional-only form (message, signature file, pubkey):
+
+```bash
+nockchain-wallet verify-message "hello" message.sig <BASE58_PUBKEY>
+```
+
+Named/positional mixed examples:
+
+```bash
+nockchain-wallet verify-message --message-file ./payload.bin message.sig <BASE58_PUBKEY>
+nockchain-wallet verify-message "hello" -s message.sig -p <BASE58_PUBKEY>
+```
+
+Notes:
+- The positional forms are equivalent to the named flags (`--message`, `--signature`, `--pubkey`).
+
+### Sign Hash
+
+Signs a precomputed tip5 hash (base58 string). Writes signature to `hash.sig`.
+
+```bash
+nockchain-wallet sign-hash <BASE58_TIP5_HASH>
+nockchain-wallet sign-hash <BASE58_TIP5_HASH> --index 5 --hardened
+```
+
+### Verify Hash
+
+Verifies a signature against a precomputed tip5 hash (base58 string) and pubkey.
+
+```bash
+nockchain-wallet verify-hash <BASE58_TIP5_HASH> hash.sig <BASE58_PUBKEY>
+nockchain-wallet verify-hash <BASE58_TIP5_HASH> -s hash.sig -p <BASE58_PUBKEY>
+```

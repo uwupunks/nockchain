@@ -193,6 +193,10 @@
       [%import-master-pubkey =coil]                     ::  base58-encoded pubkey + chain code
       [%send-tx dat=transaction]
       [%show-tx dat=transaction]
+      [%sign-message msg=@ sign-key=(unit [child-index=@ud hardened=?])]
+      [%verify-message msg=@ sig=@ pk-b58=@t]
+      [%sign-hash hash-b58=@t sign-key=(unit [child-index=@ud hardened=?])]
+      [%verify-hash hash-b58=@t sig=@ pk-b58=@t]
       [%list-notes-by-pubkey pubkey=@t]                 ::  base58-encoded pubkey
       [%list-notes-by-pubkey-csv pubkey=@t]             ::  base58-encoded pubkey, CSV format
       $:  %create-tx
@@ -1238,6 +1242,10 @@
       %create-tx             (do-create-tx cause)
       %update-balance        (do-update-balance cause)
       %update-block          (do-update-block cause)
+      %sign-message          (do-sign-message cause)
+      %verify-message        (do-verify-message cause)
+      %sign-hash             (do-sign-hash cause)
+      %verify-hash           (do-verify-hash cause)
       %import-keys           (do-import-keys cause)
       %import-extended       (do-import-extended cause)
       %export-keys           (do-export-keys cause)
@@ -2480,6 +2488,129 @@
     =/  =effect  [%file %write path transaction-jam]
     :-  ~[effect [%exit 0]]
     state
+  ::
+  ++  do-sign-message
+    |=  =cause
+    ?>  ?=(%sign-message -.cause)
+    =/  sk=schnorr-seckey:transact  (sign-key:get:v sign-key.cause)
+    =/  msg-belts=page-msg:transact  (new:page-msg:transact `cord`msg.cause)
+    ?.  (validate:page-msg:transact msg-belts)
+      :_  state
+      :~  :-  %markdown
+          %-  crip
+          """
+          # Message could not be converted to a list of based elements, cannot sign
+
+          ### Message
+
+          {(trip `@t`msg.cause)}
+
+          """
+          [%exit 1]
+      ==
+    =/  digest  (hash:page-msg:transact msg-belts)
+    =/  to-sign  (leaf-sequence:shape:z digest)
+    =/  sig=schnorr-signature:transact
+      %+  sign:affine:belt-schnorr:cheetah:z
+        sk
+      to-sign
+    =/  sig-hash  (hash:schnorr-signature:transact sig)
+    =/  sig-jam=@  (jam sig)
+    =/  path=@t  'message.sig'
+    =/  markdown-text=@t
+      %-  crip
+      """
+      # Message signed, signature saved to message.sig
+
+      ### Message
+
+      {(trip `@t`msg.cause)}
+
+      ### Signature (Hashed)
+
+      {(trip (to-b58:hash:transact sig-hash))}
+
+      """
+    :_  state
+    :~  [%file %write path sig-jam]
+        [%markdown markdown-text]
+        [%exit 0]
+    ==
+  ::
+  ++  do-verify-message
+    |=  =cause
+    ?>  ?=(%verify-message -.cause)
+    =/  sig=schnorr-signature:transact
+      (need ((soft schnorr-signature:transact) (cue sig.cause)))
+    =/  pk=schnorr-pubkey:transact
+      (from-b58:schnorr-pubkey:transact pk-b58.cause)
+    =/  msg-belts=page-msg:transact  (new:page-msg:transact `cord`msg.cause)
+    ?.  (validate:page-msg:transact msg-belts)
+      :_  state
+      :~  :-  %markdown
+          %-  crip
+          """
+          # Message could not be converted to a list of based elements, cannot verify signature
+
+          ### Message
+
+          {(trip `@t`msg.cause)}
+
+          """
+          [%exit 1]
+      ==
+    =/  digest  (hash:page-msg:transact msg-belts)
+    =/  to-verify  (leaf-sequence:shape:z digest)
+    =/  ok=?
+      %:  verify:affine:belt-schnorr:cheetah:z
+          pk
+          to-verify
+          sig
+      ==
+    :_  state
+    :~  :-  %markdown
+        ?:  ok  '# Valid signature, message verified'  '# Invalid signature, message not verified'
+        [%exit ?:(ok 0 1)]
+    ==
+  ::
+  ++  do-sign-hash
+    |=  =cause
+    ?>  ?=(%sign-hash -.cause)
+    =/  sk=schnorr-seckey:transact  (sign-key:get:v sign-key.cause)
+    =/  digest=hash:transact  (from-b58:hash:transact hash-b58.cause)
+    =/  to-sign  (leaf-sequence:shape:z digest)
+    =/  sig=schnorr-signature:transact
+      %+  sign:affine:belt-schnorr:cheetah:z
+        sk
+      to-sign
+    =/  sig-jam=@  (jam sig)
+    =/  path=@t  'hash.sig'
+    :_  state
+    :~  [%file %write path sig-jam]
+        [%markdown '## Hash signed, signature saved to hash.sig']
+        [%exit 0]
+    ==
+  ::
+  ++  do-verify-hash
+    |=  =cause
+    ?>  ?=(%verify-hash -.cause)
+    =/  sig=schnorr-signature:transact
+      (need ((soft schnorr-signature:transact) (cue sig.cause)))
+    =/  pk=schnorr-pubkey:transact
+      (from-b58:schnorr-pubkey:transact pk-b58.cause)
+    =/  digest=hash:transact  (from-b58:hash:transact hash-b58.cause)
+    =/  to-verify  (leaf-sequence:shape:z digest)
+    =/  ok=?
+      %:  verify:affine:belt-schnorr:cheetah:z
+          pk
+          to-verify
+          sig
+      ==
+    :_  state
+    :~  :-  %markdown
+        ?:  ok  '# Valid signature, hash verified'  '# Invalid signature, hash not verified'
+        [%exit ?:(ok 0 1)]
+    ==
   ::
   ++  do-advanced-spend-seed
     |=  cause=advanced-spend-seed

@@ -316,6 +316,95 @@ pub enum Commands {
 
     /// Show the master private key
     ShowMasterPrivkey,
+
+    /// Sign an arbitrary message
+    #[command(group = clap::ArgGroup::new("message_source").required(true).args(&["message", "message_file", "message_pos"]))]
+    SignMessage {
+        /// Message to sign (raw string)
+        #[arg(short = 'm', long = "message", group = "message_source")]
+        message: Option<String>,
+
+        /// Path to file containing raw bytes to sign
+        #[arg(short = 'f', long = "message-file", group = "message_source")]
+        message_file: Option<String>,
+
+        /// Positional message to sign (equivalent to --message)
+        #[arg(value_name = "MESSAGE", group = "message_source")]
+        message_pos: Option<String>,
+
+        /// Optional key index to use for signing [0, 2^31)
+        #[arg(short, long, value_parser = clap::value_parser!(u64).range(0..2 << 31))]
+        index: Option<u64>,
+        /// Hardened or unhardened child key
+        #[arg(short, long, default_value = "false")]
+        hardened: bool,
+    },
+
+    /// Sign an already-computed tip5 hash (base58)
+    SignHash {
+        /// Positional base58-encoded tip5 hash to sign
+        #[arg(value_name = "HASH")]
+        hash_b58: String,
+
+        /// Optional key index to use for signing [0, 2^31)
+        #[arg(short, long, value_parser = clap::value_parser!(u64).range(0..2 << 31))]
+        index: Option<u64>,
+        /// Hardened or unhardened child key
+        #[arg(short, long, default_value = "false")]
+        hardened: bool,
+    },
+
+    /// Verify an arbitrary message signature
+    VerifyMessage {
+        /// Message to verify (raw string)
+        #[arg(short = 'm', long = "message")]
+        message: Option<String>,
+
+        /// Path to file containing raw bytes of message to verify
+        #[arg(short = 'f', long = "message-file")]
+        message_file: Option<String>,
+
+        /// Positional message to verify (equivalent to --message)
+        #[arg(value_name = "MESSAGE", conflicts_with_all = ["message", "message_file"])]
+        message_pos: Option<String>,
+
+        /// Path to jammed signature file produced by sign-message
+        #[arg(short = 's', long = "signature")]
+        signature_path: Option<String>,
+
+        /// Positional signature path (equivalent to --signature)
+        #[arg(value_name = "SIGNATURE_FILE")]
+        signature_pos: Option<String>,
+
+        /// Base58-encoded schnorr public key
+        #[arg(short = 'p', long = "pubkey")]
+        pubkey: Option<String>,
+
+        /// Positional public key (equivalent to --pubkey)
+        #[arg(value_name = "PUBKEY")]
+        pubkey_pos: Option<String>,
+    },
+
+    /// Verify a signature against an already-computed tip5 hash (base58)
+    VerifyHash {
+        /// Positional base58-encoded tip5 hash
+        #[arg(value_name = "HASH")]
+        hash_b58: String,
+
+        /// Path to jammed signature file produced by signing
+        #[arg(short = 's', long = "signature")]
+        signature_path: Option<String>,
+        /// Positional signature path
+        #[arg(value_name = "SIGNATURE_FILE")]
+        signature_pos: Option<String>,
+
+        /// Base58-encoded schnorr public key
+        #[arg(short = 'p', long = "pubkey")]
+        pubkey: Option<String>,
+        /// Positional public key
+        #[arg(value_name = "PUBKEY")]
+        pubkey_pos: Option<String>,
+    },
 }
 
 impl Commands {
@@ -340,6 +429,10 @@ impl Commands {
             Commands::ShowSeedphrase => "show-seedphrase",
             Commands::ShowMasterPubkey => "show-master-pubkey",
             Commands::ShowMasterPrivkey => "show-master-privkey",
+            Commands::SignMessage { .. } => "sign-message",
+            Commands::VerifyMessage { .. } => "verify-message",
+            Commands::SignHash { .. } => "sign-hash",
+            Commands::VerifyHash { .. } => "verify-hash",
         }
     }
 }
@@ -524,6 +617,105 @@ impl Wallet {
         Self::wallet(
             "sign-tx",
             &[transaction_noun, sign_key_noun, entropy],
+            Operation::Poke,
+            &mut slab,
+        )
+    }
+
+    fn sign_message(
+        message_bytes: &[u8],
+        index: Option<u64>,
+        hardened: bool,
+    ) -> CommandNoun<NounSlab> {
+        let mut slab = NounSlab::new();
+
+        if let Some(idx) = index {
+            if idx >= 2 << 31 {
+                return Err(
+                    CrownError::Unknown("Key index must not exceed 2^31 - 1".into()).into(),
+                );
+            }
+        }
+
+        let msg_atom = from_bytes(&mut slab, message_bytes).as_noun();
+
+        let sign_key_noun = match index {
+            Some(i) => {
+                let inner = D(i);
+                let hardened_noun = if hardened { YES } else { NO };
+                T(&mut slab, &[D(0), inner, hardened_noun])
+            }
+            None => D(0),
+        };
+
+        Self::wallet(
+            "sign-message",
+            &[msg_atom, sign_key_noun],
+            Operation::Poke,
+            &mut slab,
+        )
+    }
+
+    fn verify_message(
+        message_bytes: &[u8],
+        signature_jam: &[u8],
+        pubkey_b58: &str,
+    ) -> CommandNoun<NounSlab> {
+        let mut slab = NounSlab::new();
+        let msg_atom = from_bytes(&mut slab, message_bytes).as_noun();
+        let sig_atom = from_bytes(&mut slab, signature_jam).as_noun();
+        let pk_noun = make_tas(&mut slab, pubkey_b58).as_noun();
+
+        Self::wallet(
+            "verify-message",
+            &[msg_atom, sig_atom, pk_noun],
+            Operation::Poke,
+            &mut slab,
+        )
+    }
+
+    fn sign_hash(hash_b58: &str, index: Option<u64>, hardened: bool) -> CommandNoun<NounSlab> {
+        let mut slab = NounSlab::new();
+
+        if let Some(idx) = index {
+            if idx >= 2 << 31 {
+                return Err(
+                    CrownError::Unknown("Key index must not exceed 2^31 - 1".into()).into(),
+                );
+            }
+        }
+
+        let hash_noun = make_tas(&mut slab, hash_b58).as_noun();
+        let sign_key_noun = match index {
+            Some(i) => {
+                let inner = D(i);
+                let hardened_noun = if hardened { YES } else { NO };
+                T(&mut slab, &[D(0), inner, hardened_noun])
+            }
+            None => D(0),
+        };
+
+        Self::wallet(
+            "sign-hash",
+            &[hash_noun, sign_key_noun],
+            Operation::Poke,
+            &mut slab,
+        )
+    }
+
+    fn verify_hash(
+        hash_b58: &str,
+        signature_jam: &[u8],
+        pubkey_b58: &str,
+    ) -> CommandNoun<NounSlab> {
+        let mut slab = NounSlab::new();
+        let hash_noun = make_tas(&mut slab, hash_b58).as_noun();
+        let sig_atom = from_bytes(&mut slab, signature_jam).as_noun();
+        let pk_noun = make_tas(&mut slab, pubkey_b58).as_noun();
+
+        Self::wallet(
+            "verify-hash",
+            &[hash_noun, sig_atom, pk_noun],
             Operation::Poke,
             &mut slab,
         )
@@ -1021,6 +1213,10 @@ async fn main() -> Result<(), NockAppError> {
         | Commands::ImportKeys { .. }
         | Commands::ExportKeys
         | Commands::SignTx { .. }
+        | Commands::SignMessage { .. }
+        | Commands::VerifyMessage { .. }
+        | Commands::SignHash { .. }
+        | Commands::VerifyHash { .. }
         | Commands::ExportMasterPubkey
         | Commands::ImportMasterPubkey { .. }
         | Commands::ListPubkeys
@@ -1060,6 +1256,95 @@ async fn main() -> Result<(), NockAppError> {
             index,
             hardened,
         } => Wallet::sign_tx(transaction, *index, *hardened),
+        Commands::SignMessage {
+            message,
+            message_file,
+            message_pos,
+            index,
+            hardened,
+        } => {
+            let bytes = if let Some(m) = message.clone().or(message_pos.clone()) {
+                m.as_bytes().to_vec()
+            } else if let Some(path) = message_file {
+                fs::read(path).map_err(|e| {
+                    CrownError::Unknown(format!("Failed to read message file: {}", e))
+                })?
+            } else {
+                return Err(CrownError::Unknown(
+                    "either --message or --message-file must be provided".into(),
+                )
+                .into());
+            };
+            Wallet::sign_message(&bytes, *index, *hardened)
+        }
+        Commands::SignHash {
+            hash_b58,
+            index,
+            hardened,
+        } => Wallet::sign_hash(hash_b58, *index, *hardened),
+        Commands::VerifyMessage {
+            message,
+            message_file,
+            message_pos,
+            signature_path,
+            signature_pos,
+            pubkey,
+            pubkey_pos,
+        } => {
+            let msg_bytes = if let Some(m) = message.clone().or(message_pos.clone()) {
+                m.as_bytes().to_vec()
+            } else if let Some(path) = message_file {
+                fs::read(path).map_err(|e| {
+                    CrownError::Unknown(format!("Failed to read message file: {}", e))
+                })?
+            } else {
+                return Err(CrownError::Unknown(
+                    "either --message or --message-file must be provided".into(),
+                )
+                .into());
+            };
+            let sig_path = signature_path
+                .clone()
+                .or(signature_pos.clone())
+                .ok_or_else(|| {
+                    NockAppError::from(CrownError::Unknown(
+                        "--signature or SIGNATURE_FILE positional is required".into(),
+                    ))
+                })?;
+            let pk_b58 = pubkey.clone().or(pubkey_pos.clone()).ok_or_else(|| {
+                NockAppError::from(CrownError::Unknown(
+                    "--pubkey or PUBKEY positional is required".into(),
+                ))
+            })?;
+
+            let sig_bytes = fs::read(sig_path)
+                .map_err(|e| CrownError::Unknown(format!("Failed to read signature: {}", e)))?;
+            Wallet::verify_message(&msg_bytes, &sig_bytes, &pk_b58)
+        }
+        Commands::VerifyHash {
+            hash_b58,
+            signature_path,
+            signature_pos,
+            pubkey,
+            pubkey_pos,
+        } => {
+            let sig_path = signature_path
+                .clone()
+                .or(signature_pos.clone())
+                .ok_or_else(|| {
+                    NockAppError::from(CrownError::Unknown(
+                        "--signature or SIGNATURE_FILE positional is required".into(),
+                    ))
+                })?;
+            let pk_b58 = pubkey.clone().or(pubkey_pos.clone()).ok_or_else(|| {
+                NockAppError::from(CrownError::Unknown(
+                    "--pubkey or PUBKEY positional is required".into(),
+                ))
+            })?;
+            let sig_bytes = fs::read(sig_path)
+                .map_err(|e| CrownError::Unknown(format!("Failed to read signature: {}", e)))?;
+            Wallet::verify_hash(hash_b58, &sig_bytes, &pk_b58)
+        }
         Commands::ImportKeys {
             file,
             key,
